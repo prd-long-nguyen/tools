@@ -32,8 +32,9 @@ def generator(lang):
             buf = BytesIO()
             write_po(buf, catalog, omit_header=True, width=300)            
             with open(pathDestination, 'a') as outf:
-                outf.write(buf.getvalue().decode("utf8"))
-                # outf.write(buf.getvalue().decode("utf8").replace('%(ai_name)s', '%{name}').replace('#, python-format', ''))
+                # 3: custom output 
+                # outf.write(buf.getvalue().decode("utf8"))
+                outf.write(buf.getvalue().decode("utf8").replace('%(ai_name)s', '%{name}').replace('#, python-format', ''))
 
 # .replace('%s', '%{aiName}').replace('#, python-format', '')
 # .replace('%(ai_name)s', '%{ai_name}').replace('#, python-format', '')
