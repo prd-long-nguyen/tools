@@ -1,0 +1,160 @@
+en
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr ""
+
+es
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configure todas las distintas maneras en las que los candidatos pueden comunicarse con %(ai_name)s para su evento."
+
+pt_BR
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configure todas as maneiras diferentes que os candidatos podem se comunicar com %(ai_name)s para seu evento."
+
+fr
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configurez toutes les façons dont les candidats peuvent communiquer avec %(ai_name)s pour votre événement."
+
+fr_CA
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configurez toutes les façons dont les candidats peuvent communiquer avec %(ai_name)s pour votre événement."
+
+de
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Konfiguriere die verschiedenen Möglichkeiten, wie Kandidaten mit %(ai_name)s für dein Event kommunizieren können."
+
+zh_CN
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "设置候选人可与%(ai_name)s交流活动信息的所有方式。"
+
+zh_TW
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "設置各種面試人選可在您活動中與%(ai_name)s互動的方式。"
+
+tr
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Etkinliğiniz için adayların %(ai_name)s ile iletişim kurabileceği farklı tüm yolları yapılandırın."
+
+nl
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configureer alle verschillende manieren waarop kandidaten kunnen communiceren met %(ai_name)s voor uw evenement."
+
+hu
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Konfigurálja az összes különböző módot, amellyel a jelöltek kommunikálni tudnak vele: %(ai_name)s az eseményéhez."
+
+it
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configura tutti i diversi modi in cui i candidati possono comunicare con %(ai_name)s per il tuo evento."
+
+ko
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "지원자가 귀하의 모든 이벤트와 관련하여 %(ai_name)s과(와) 소통할 수 있는 다양한 모든 방법들을 구성하세요."
+
+ru
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Настройте для вашего мероприятия все способы коммуникации кандидатов с %(ai_name)s."
+
+ja
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "イベントのために、応募者が %(ai_name)s と通信できる、さまざまな方法をすべて設定します。"
+
+vi
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Đặt cấu hình tất cả các cách khác nhau mà ứng viên có thể trao đổi thông tin với %(ai_name)s về sự kiện của bạn."
+
+bs
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Konfigurirati sve različite načine na koje kandidati mogu komunicirati sa %(ai_name)s za Vaš događaj."
+
+he
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "הגדר/י את כל הדרכים השונות שבהן מועמדים יכולים לתקשר עם ‎%(ai_name)s לגבי האירוע שלך."
+
+ar
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "قم بتكوين كل الطرق المختلفة التي يستطيع المرشحون من خلالها التواصل مع %(ai_name)s لحدثك."
+
+bg
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Конфигурирайте всички различни начини, по които кандидатите могат да комуникират с %(ai_name)s за Вашето събитие."
+
+hr
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Konfigurirajte sve različite načine na koje kandidati mogu komunicirati s %(ai_name)s za vaš događaj."
+
+cs
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Nakonfigurujte všechny různé způsoby, kterými mohou uchazeči komunikovat s %(ai_name)s v rámci události."
+
+el
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Διαμορφώστε όλους τους διαφορετικούς τρόπους με τους οποίους οι υποψήφιοι μπορούν να επικοινωνούν με το %(ai_name)s για την εκδήλωση σας."
+
+pl
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Skonfiguruj wszystkie różne sposoby, w jakie kandydaci mogą komunikować się z %(ai_name)s w ramach Twojego wydarzenia."
+
+sr
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Konfiguriite sve različite načine na koje kandidati mogu da komuniciraju sa %(ai_name)s za va događaj."
+
+sk
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Nakonfigurujte jednotlivé spôsoby, ako môžu uchádzači komunikovať s %(ai_name)s pri vašej udalosti."
+
+th
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "กำหนดค่าวิธีต่างๆ ที่ผู้สมัครจะสามารถติดต่อสื่อสารกับ %(ai_name)s สำหรับงานกิจกรรมของคุณ"
+
+uk
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Налаштуйте способи, за допомогою яких кандидати можуть спілкуватися з %(ai_name)s з питань вашого заходу."
+
+ro
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configurați toate modalitățile diferite în care candidații pot comunica cu %(ai_name)s pentru evenimentul dvs."
+
+es_EM
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configura todas las diferentes formas en que los candidatos pueden comunicarse con %(ai_name)s para tu evento."
+
+es_MX
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configura todas las diferentes formas en que los candidatos pueden comunicarse con %(ai_name)s para tu evento."
+
+pt
+#, python-format
+msgid "Configure all the different ways candidates can communicate with %(ai_name)s for your event."
+msgstr "Configure todas as diferentes formas de comunicação dos candidatos com %(ai_name)s para o seu evento."
+
