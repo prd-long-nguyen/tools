@@ -1,16 +1,18 @@
 (function () {
-  const HOST_ID = "__pixel_overlay_host__";
-  const existing = document.getElementById(HOST_ID);
-  if (existing) {
-    if (typeof existing.__poAbort === "function") existing.__poAbort();
-    existing.remove();
-  }
-  ["__pixel_overlay_root__", "__pixel_overlay_panel__", "__pixel_overlay_style__"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.remove();
-  });
+  "use strict";
 
-  const state = {
+  const HOST_ID = "__pixel_overlay_host__";
+  const LEGACY_IDS = ["__pixel_overlay_root__", "__pixel_overlay_panel__", "__pixel_overlay_style__"];
+  const OPACITY_STEP = 0.05;
+  const SCALE_STEP = 0.05;
+  const WHEEL_STEP = 0.02;
+  const NUDGE = 1;
+  const NUDGE_SHIFT = 10;
+  const SCALE_MIN = 0.1;
+  const SCALE_MAX = 3;
+  const PANEL_DRAG_THRESHOLD = 3;
+
+  const DEFAULTS = {
     opacity: 0.5,
     x: 0,
     y: 0,
@@ -21,10 +23,20 @@
     hasImage: false,
   };
 
-  const host = document.createElement("div");
-  host.id = HOST_ID;
-  host.setAttribute("data-pixel-overlay", "1");
-  host.style.cssText = [
+  const ICONS = {
+    logo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="2"/><rect x="10" y="10" width="11" height="11" rx="2" opacity=".75"/></svg>`,
+    minimize: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>`,
+    expand: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`,
+    close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+    load: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v10M7 10l5-5 5 5"/><path d="M5 19h14"/></svg>`,
+    file: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>`,
+    up: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 14l6-6 6 6"/></svg>`,
+    left: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 6l-6 6 6 6"/></svg>`,
+    right: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6l6 6-6 6"/></svg>`,
+    down: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 10l6 6 6-6"/></svg>`,
+  };
+
+  const HOST_STYLE = [
     "all:initial",
     "position:fixed",
     "inset:0",
@@ -51,21 +63,7 @@
     .map((rule) => `${rule} !important`)
     .join(";");
 
-  const ac = new AbortController();
-  host.__poAbort = () => ac.abort();
-
-  const shadow = host.attachShadow({ mode: "open" });
-
-  const root = document.createElement("div");
-  root.id = "__pixel_overlay_root__";
-
-  const img = document.createElement("img");
-  img.id = "__pixel_overlay_img__";
-  img.alt = "Pixel overlay";
-  root.appendChild(img);
-
-  const style = document.createElement("style");
-  style.textContent = `
+  const STYLES = `
     :host {
       all: initial;
       position: fixed !important;
@@ -90,7 +88,7 @@
       position: absolute;
       top: 0;
       left: 0;
-      opacity: ${state.opacity};
+      opacity: ${DEFAULTS.opacity};
       transform-origin: top left;
       max-width: none;
       max-height: none;
@@ -342,13 +340,11 @@
       font-size: 11px;
       color: #d4d4de;
     }
-    #__pixel_overlay_panel__ .po-step {
-      width: 26px;
-      height: 26px;
+    #__pixel_overlay_panel__ .po-step,
+    #__pixel_overlay_panel__ .po-dpad .po-nudge {
       padding: 0;
       border: 1px solid transparent;
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.06);
       color: var(--po-text);
       cursor: pointer;
       font: inherit;
@@ -356,14 +352,27 @@
       place-items: center;
       transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
     }
+    #__pixel_overlay_panel__ .po-step {
+      width: 26px;
+      height: 26px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    #__pixel_overlay_panel__ .po-dpad .po-nudge {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.07);
+    }
     #__pixel_overlay_panel__ .po-step:hover,
-    #__pixel_overlay_panel__ .po-step:focus-visible {
+    #__pixel_overlay_panel__ .po-step:focus-visible,
+    #__pixel_overlay_panel__ .po-dpad .po-nudge:hover,
+    #__pixel_overlay_panel__ .po-dpad .po-nudge:focus-visible {
       background: rgba(255, 255, 255, 0.16);
       border-color: rgba(255, 255, 255, 0.14);
       color: #fff;
       outline: none;
     }
-    #__pixel_overlay_panel__ .po-step:active {
+    #__pixel_overlay_panel__ .po-step:active,
+    #__pixel_overlay_panel__ .po-dpad .po-nudge:active {
       background: rgba(37, 201, 208, 0.2);
       border-color: rgba(37, 201, 208, 0.35);
       color: #bde6e8;
@@ -415,32 +424,6 @@
       grid-template-columns: 32px 32px 32px;
       grid-template-rows: 32px 32px 32px;
       gap: 4px;
-    }
-    #__pixel_overlay_panel__ .po-dpad .po-nudge {
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.07);
-      color: var(--po-text);
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
-    }
-    #__pixel_overlay_panel__ .po-dpad .po-nudge:hover,
-    #__pixel_overlay_panel__ .po-dpad .po-nudge:focus-visible {
-      background: rgba(255, 255, 255, 0.16);
-      border-color: rgba(255, 255, 255, 0.14);
-      color: #fff;
-      outline: none;
-    }
-    #__pixel_overlay_panel__ .po-dpad .po-nudge:active {
-      background: rgba(37, 201, 208, 0.2);
-      border-color: rgba(37, 201, 208, 0.35);
-      color: #bde6e8;
-      transform: scale(0.94);
     }
     #__pixel_overlay_panel__ .po-dpad .po-nudge svg { width: 13px; height: 13px; }
     #__pixel_overlay_panel__ #__po_nudge_up__ { grid-column: 2; grid-row: 1; }
@@ -513,181 +496,95 @@
     #__pixel_overlay_panel__.is-minimized .po-subtitle,
     #__pixel_overlay_panel__.is-minimized .po-header-actions { display: none; }
   `;
-  shadow.appendChild(style);
-  shadow.appendChild(root);
 
-  const panel = document.createElement("div");
-  panel.id = "__pixel_overlay_panel__";
-  panel.innerHTML = `
-    <div class="po-header" id="__po_header__">
-      <div class="po-brand">
-        <div class="po-logo" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="11" height="11" rx="2"/>
-            <rect x="10" y="10" width="11" height="11" rx="2" opacity=".75"/>
-          </svg>
-        </div>
-        <div>
-          <div class="po-title">Pixel Overlay</div>
-          <div class="po-subtitle" id="__po_status__">No image</div>
-        </div>
-      </div>
-      <div class="po-header-actions">
-        <button type="button" class="po-icon-btn" id="__po_minimize__" title="Minimize (M)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14"/>
-          </svg>
-        </button>
-        <button type="button" class="po-icon-btn po-close" id="__po_close__" title="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 6l12 12M18 6L6 18"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-    <div id="__po_body__">
-      <div class="po-drop" id="__po_drop__">
-        <div class="po-url-row">
-          <input id="__po_url__" type="text" placeholder="Paste image URL…" aria-describedby="__po_url_error__" />
-          <button type="button" class="po-btn" id="__po_load__" title="Load" aria-label="Load">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 5v10M7 10l5-5 5 5"/>
-              <path d="M5 19h14"/>
-            </svg>
-          </button>
-        </div>
-        <p class="po-url-error" id="__po_url_error__" role="alert"></p>
-        <button type="button" class="po-btn" id="__po_file__">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
-            <path d="M14 3v5h5"/>
-          </svg>
-          Choose file
-        </button>
-        <div class="po-drop-hint">Drop a file here, or Ctrl+V to paste</div>
-      </div>
-      <input id="__po_file_input__" type="file" accept="image/*" style="display:none;" />
-
-      <div class="po-section">
-        <div class="po-control">
-          <span class="po-label">Opacity</span>
-          <button type="button" class="po-step" id="__po_op_down__">−</button>
-          <input id="__po_op_range__" type="range" min="0" max="1" step="0.05" value="${state.opacity}" />
-          <button type="button" class="po-step" id="__po_op_up__">+</button>
-          <span class="po-value" id="__po_op_label__">${Math.round(state.opacity * 100)}%</span>
-        </div>
-        <div class="po-control">
-          <span class="po-label">Zoom</span>
-          <button type="button" class="po-step" id="__po_scale_down__">−</button>
-          <input id="__po_scale_range__" type="range" min="0.1" max="3" step="0.01" value="${state.scale}" />
-          <button type="button" class="po-step" id="__po_scale_up__">+</button>
-          <span class="po-value" id="__po_scale_label__">100%</span>
-        </div>
-      </div>
-
-      <div class="po-align">
-        <div class="po-dpad">
-          <button type="button" class="po-nudge" id="__po_nudge_up__" title="Up 1px">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 14l6-6 6 6"/></svg>
-          </button>
-          <button type="button" class="po-nudge" id="__po_nudge_left__" title="Left 1px">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 6l-6 6 6 6"/></svg>
-          </button>
-          <button type="button" class="po-nudge" id="__po_nudge_right__" title="Right 1px">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6l6 6-6 6"/></svg>
-          </button>
-          <button type="button" class="po-nudge" id="__po_nudge_down__" title="Down 1px">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 10l6 6 6-6"/></svg>
-          </button>
-        </div>
-        <div class="po-meta">
-          <div class="po-pos">
-            <div class="po-pos-item">X <b id="__po_x__">0</b></div>
-            <div class="po-pos-item">Y <b id="__po_y__">0</b></div>
+  function panelHTML(state) {
+    return `
+      <div class="po-header" id="__po_header__">
+        <div class="po-brand">
+          <div class="po-logo" aria-hidden="true">${ICONS.logo}</div>
+          <div>
+            <div class="po-title">Pixel Overlay</div>
+            <div class="po-subtitle" id="__po_status__">No image</div>
           </div>
-          <div class="po-hint">Hold Shift: move 10px</div>
+        </div>
+        <div class="po-header-actions">
+          <button type="button" class="po-icon-btn" id="__po_minimize__" title="Minimize (M)">${ICONS.minimize}</button>
+          <button type="button" class="po-icon-btn po-close" id="__po_close__" title="Close">${ICONS.close}</button>
         </div>
       </div>
+      <div id="__po_body__">
+        <div class="po-drop" id="__po_drop__">
+          <div class="po-url-row">
+            <input id="__po_url__" type="text" placeholder="Paste image URL…" aria-describedby="__po_url_error__" />
+            <button type="button" class="po-btn" id="__po_load__" title="Load" aria-label="Load">${ICONS.load}</button>
+          </div>
+          <p class="po-url-error" id="__po_url_error__" role="alert"></p>
+          <button type="button" class="po-btn" id="__po_file__">${ICONS.file} Choose file</button>
+          <div class="po-drop-hint">Drop a file here, or Ctrl+V to paste</div>
+        </div>
+        <input id="__po_file_input__" type="file" accept="image/*" style="display:none;" />
 
-      <div class="po-actions">
-        <button type="button" class="po-btn" id="__po_toggle__">Hide · V</button>
-        <button type="button" class="po-btn" id="__po_lock__">Lock · L</button>
-        <button type="button" class="po-btn" id="__po_center__">Center</button>
-        <button type="button" class="po-btn" id="__po_reset__">Reset</button>
+        <div class="po-section">
+          <div class="po-control">
+            <span class="po-label">Opacity</span>
+            <button type="button" class="po-step" id="__po_op_down__">−</button>
+            <input id="__po_op_range__" type="range" min="0" max="1" step="${OPACITY_STEP}" value="${state.opacity}" />
+            <button type="button" class="po-step" id="__po_op_up__">+</button>
+            <span class="po-value" id="__po_op_label__">${pct(state.opacity)}</span>
+          </div>
+          <div class="po-control">
+            <span class="po-label">Zoom</span>
+            <button type="button" class="po-step" id="__po_scale_down__">−</button>
+            <input id="__po_scale_range__" type="range" min="${SCALE_MIN}" max="${SCALE_MAX}" step="0.01" value="${state.scale}" />
+            <button type="button" class="po-step" id="__po_scale_up__">+</button>
+            <span class="po-value" id="__po_scale_label__">${pct(state.scale)}</span>
+          </div>
+        </div>
+
+        <div class="po-align">
+          <div class="po-dpad">
+            <button type="button" class="po-nudge" id="__po_nudge_up__" title="Up 1px">${ICONS.up}</button>
+            <button type="button" class="po-nudge" id="__po_nudge_left__" title="Left 1px">${ICONS.left}</button>
+            <button type="button" class="po-nudge" id="__po_nudge_right__" title="Right 1px">${ICONS.right}</button>
+            <button type="button" class="po-nudge" id="__po_nudge_down__" title="Down 1px">${ICONS.down}</button>
+          </div>
+          <div class="po-meta">
+            <div class="po-pos">
+              <div class="po-pos-item">X <b id="__po_x__">0</b></div>
+              <div class="po-pos-item">Y <b id="__po_y__">0</b></div>
+            </div>
+            <div class="po-hint">Hold Shift: move 10px</div>
+          </div>
+        </div>
+
+        <div class="po-actions">
+          <button type="button" class="po-btn" id="__po_toggle__">Hide · V</button>
+          <button type="button" class="po-btn" id="__po_lock__">Lock · L</button>
+          <button type="button" class="po-btn" id="__po_center__">Center</button>
+          <button type="button" class="po-btn" id="__po_reset__">Reset</button>
+        </div>
+
+        <div class="po-keys">
+          <kbd>[ ] opacity</kbd>
+          <kbd>V hide</kbd>
+          <kbd>L lock</kbd>
+          <kbd>M minimize</kbd>
+          <kbd>Scroll zoom</kbd>
+        </div>
       </div>
-
-      <div class="po-keys">
-        <kbd>[ ] opacity</kbd>
-        <kbd>V hide</kbd>
-        <kbd>L lock</kbd>
-        <kbd>M minimize</kbd>
-        <kbd>Scroll zoom</kbd>
-      </div>
-    </div>
-  `;
-  shadow.appendChild(panel);
-  (document.documentElement || document.body).appendChild(host);
-
-  const $ = (id) => panel.querySelector(id);
-  const panelBody = $("#__po_body__");
-  const minimizeBtn = $("#__po_minimize__");
-  const statusEl = $("#__po_status__");
-  const dropEl = $("#__po_drop__");
-  const posX = $("#__po_x__");
-  const posY = $("#__po_y__");
-
-  function applyTransform() {
-    img.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
-    img.style.opacity = state.visible ? state.opacity : 0;
-    img.style.pointerEvents = state.visible ? "auto" : "none";
-    img.style.cursor = state.locked || !state.visible ? "default" : "grab";
-    posX.textContent = Math.round(state.x);
-    posY.textContent = Math.round(state.y);
+    `;
   }
 
-  function setMinimized(v) {
-    state.minimized = v;
-    panelBody.style.display = v ? "none" : "block";
-    panel.classList.toggle("is-minimized", v);
-    panel.title = v ? "Expand (M)" : "";
-    minimizeBtn.innerHTML = v
-      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`
-      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>`;
-    minimizeBtn.title = v ? "Expand (M)" : "Minimize (M)";
-  }
-  minimizeBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    setMinimized(!state.minimized);
-  });
-
-  const urlInput = $("#__po_url__");
-  const fileInput = $("#__po_file_input__");
-  const opRange = $("#__po_op_range__");
-  const opLabel = $("#__po_op_label__");
-  const scaleRange = $("#__po_scale_range__");
-  const scaleLabel = $("#__po_scale_label__");
-  const toggleBtn = $("#__po_toggle__");
-  const lockBtn = $("#__po_lock__");
-
-  const urlError = $("#__po_url_error__");
-  let loadGen = 0;
-
-  function setStatus(text) {
-    statusEl.textContent = text;
+  function pct(n) {
+    return `${Math.round(n * 100)}%`;
   }
 
-  function showUrlError(message) {
-    urlInput.classList.add("is-error");
-    urlInput.setAttribute("aria-invalid", "true");
-    urlError.textContent = message;
-    urlError.classList.add("is-on");
+  function clamp(n, min, max) {
+    return Math.min(max, Math.max(min, n));
   }
 
-  function clearUrlError() {
-    urlInput.classList.remove("is-error");
-    urlInput.removeAttribute("aria-invalid");
-    urlError.textContent = "";
-    urlError.classList.remove("is-on");
+  function nudgeStep(shiftKey) {
+    return shiftKey ? NUDGE_SHIFT : NUDGE;
   }
 
   function isImageSrc(src) {
@@ -700,19 +597,144 @@
     }
   }
 
-  function loadFromUrl() {
-    const src = urlInput.value.trim();
-    if (!src) {
-      showUrlError("Enter an image URL");
-      urlInput.focus();
-      return;
+  function isTypingTarget(el) {
+    if (!el || !el.tagName) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === "TEXTAREA" || tag === "SELECT") return true;
+    if (tag !== "INPUT") return false;
+    const type = (el.type || "text").toLowerCase();
+    return type !== "range" && type !== "button" && type !== "checkbox" && type !== "radio" && type !== "file";
+  }
+
+  function removeExisting() {
+    const existing = document.getElementById(HOST_ID);
+    if (existing) {
+      if (typeof existing.__poAbort === "function") existing.__poAbort();
+      existing.remove();
     }
-    if (!isImageSrc(src)) {
-      showUrlError("Enter a valid image URL");
-      urlInput.focus();
-      return;
-    }
-    loadImage(src, src, true);
+    LEGACY_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
+  }
+
+  function createHost(ac) {
+    const host = document.createElement("div");
+    host.id = HOST_ID;
+    host.setAttribute("data-pixel-overlay", "1");
+    host.style.cssText = HOST_STYLE;
+    host.__poAbort = () => ac.abort();
+    return host;
+  }
+
+  function logReady() {
+    console.log(
+      "%cPixel Overlay %cready",
+      "background:#25c9d0;color:#fff;padding:2px 8px;border-radius:99px 0 0 99px;font-weight:700;",
+      "background:#1f1f2b;color:#bde6e8;padding:2px 8px;border-radius:0 99px 99px 0;",
+    );
+  }
+
+  removeExisting();
+
+  const state = { ...DEFAULTS };
+  const ac = new AbortController();
+  const host = createHost(ac);
+  const shadow = host.attachShadow({ mode: "open" });
+
+  const style = document.createElement("style");
+  style.textContent = STYLES;
+  shadow.appendChild(style);
+
+  const root = document.createElement("div");
+  root.id = "__pixel_overlay_root__";
+  const img = document.createElement("img");
+  img.id = "__pixel_overlay_img__";
+  img.alt = "Pixel overlay";
+  root.appendChild(img);
+  shadow.appendChild(root);
+
+  const panel = document.createElement("div");
+  panel.id = "__pixel_overlay_panel__";
+  panel.innerHTML = panelHTML(state);
+  shadow.appendChild(panel);
+  (document.documentElement || document.body).appendChild(host);
+
+  const $ = (id) => panel.querySelector(id);
+  const ui = {
+    panelBody: $("#__po_body__"),
+    minimizeBtn: $("#__po_minimize__"),
+    status: $("#__po_status__"),
+    drop: $("#__po_drop__"),
+    posX: $("#__po_x__"),
+    posY: $("#__po_y__"),
+    urlInput: $("#__po_url__"),
+    urlError: $("#__po_url_error__"),
+    fileInput: $("#__po_file_input__"),
+    fileBtn: $("#__po_file__"),
+    opRange: $("#__po_op_range__"),
+    opLabel: $("#__po_op_label__"),
+    scaleRange: $("#__po_scale_range__"),
+    scaleLabel: $("#__po_scale_label__"),
+    toggleBtn: $("#__po_toggle__"),
+    lockBtn: $("#__po_lock__"),
+  };
+
+  const listen = (target, type, handler, extra) => {
+    target.addEventListener(type, handler, { signal: ac.signal, ...extra });
+  };
+  const onClick = (id, handler) => listen($(id), "click", handler);
+  const listenTypes = (target, types, handler, extra) => {
+    types.forEach((type) => listen(target, type, handler, extra));
+  };
+
+  let loadGen = 0;
+  let dragging = false;
+  let dragStart = { mx: 0, my: 0, x: 0, y: 0 };
+  let panelDragging = false;
+  let panelDragMoved = false;
+  let panelStart = { mx: 0, my: 0, top: 0, left: 0 };
+
+  function applyTransform() {
+    img.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+    img.style.opacity = state.visible ? state.opacity : 0;
+    img.style.pointerEvents = state.visible ? "auto" : "none";
+    img.style.cursor = state.locked || !state.visible ? "default" : "grab";
+    ui.posX.textContent = Math.round(state.x);
+    ui.posY.textContent = Math.round(state.y);
+  }
+
+  function setStatus(text) {
+    ui.status.textContent = text;
+  }
+
+  function showUrlError(message) {
+    ui.urlInput.classList.add("is-error");
+    ui.urlInput.setAttribute("aria-invalid", "true");
+    ui.urlError.textContent = message;
+    ui.urlError.classList.add("is-on");
+  }
+
+  function clearUrlError() {
+    ui.urlInput.classList.remove("is-error");
+    ui.urlInput.removeAttribute("aria-invalid");
+    ui.urlError.textContent = "";
+    ui.urlError.classList.remove("is-on");
+  }
+
+  function blurUrl() {
+    ui.urlInput.blur();
+    ui.urlInput.classList.remove("is-focused");
+  }
+
+  function setMinimized(v) {
+    state.minimized = v;
+    ui.panelBody.style.display = v ? "none" : "block";
+    panel.classList.toggle("is-minimized", v);
+    panel.title = v ? "Expand (M)" : "";
+    ui.minimizeBtn.innerHTML = v ? ICONS.expand : ICONS.minimize;
+    ui.minimizeBtn.title = v ? "Expand (M)" : "Minimize (M)";
   }
 
   function loadImage(src, label, fromUrl) {
@@ -740,96 +762,42 @@
     applyTransform();
   }
 
-  $("#__po_load__").addEventListener("click", loadFromUrl);
-  urlInput.addEventListener("focus", () => urlInput.classList.add("is-focused"));
-  urlInput.addEventListener("blur", () => urlInput.classList.remove("is-focused"));
-  urlInput.addEventListener("input", clearUrlError);
-  urlInput.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    loadFromUrl();
-  });
-
-  function blurUrlIfOutside(e) {
-    const path = (e.composedPath && e.composedPath()) || [];
-    if (path.includes(urlInput)) return;
-    urlInput.blur();
-    urlInput.classList.remove("is-focused");
+  function loadFromUrl() {
+    const src = ui.urlInput.value.trim();
+    if (!src) {
+      showUrlError("Enter an image URL");
+      ui.urlInput.focus();
+      return;
+    }
+    if (!isImageSrc(src)) {
+      showUrlError("Enter a valid image URL");
+      ui.urlInput.focus();
+      return;
+    }
+    loadImage(src, src, true);
   }
-  document.addEventListener("pointerdown", blurUrlIfOutside, { capture: true, signal: ac.signal });
-  shadow.addEventListener("pointerdown", blurUrlIfOutside, { capture: true, signal: ac.signal });
-
-  const fileBtn = $("#__po_file__");
-  function blurFileTrigger() {
-    fileBtn.blur();
-    fileInput.blur();
-  }
-  fileBtn.addEventListener("click", () => {
-    fileInput.click();
-    queueMicrotask(blurFileTrigger);
-  });
-  fileInput.addEventListener("change", () => {
-    blurFileTrigger();
-    const file = fileInput.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => loadImage(e.target.result, file.name);
-    reader.readAsDataURL(file);
-  });
-  fileInput.addEventListener("cancel", blurFileTrigger);
 
   function loadFile(file) {
-    if (!file || !file.type.startsWith("image/")) return;
+    if (!file) return;
+    if (file.type && !file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = (ev) => loadImage(ev.target.result, file.name || "Pasted image");
     reader.readAsDataURL(file);
   }
 
-  ["dragenter", "dragover"].forEach((type) => {
-    dropEl.addEventListener(type, (e) => {
-      e.preventDefault();
-      dropEl.classList.add("is-dragover");
-    });
-  });
-  ["dragleave", "drop"].forEach((type) => {
-    dropEl.addEventListener(type, (e) => {
-      e.preventDefault();
-      dropEl.classList.remove("is-dragover");
-    });
-  });
-  dropEl.addEventListener("drop", (e) => {
-    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    loadFile(file);
-  });
-
-  function pasteHandler(e) {
-    const items = e.clipboardData && e.clipboardData.items;
-    if (!items) return;
-    const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
-    if (!imageItem) return;
-    loadFile(imageItem.getAsFile());
-  }
-  document.addEventListener("paste", pasteHandler, { signal: ac.signal });
-
   function setOpacity(v) {
-    state.opacity = Math.min(1, Math.max(0, v));
-    opRange.value = state.opacity;
-    opLabel.textContent = `${Math.round(state.opacity * 100)}%`;
+    state.opacity = clamp(v, 0, 1);
+    ui.opRange.value = state.opacity;
+    ui.opLabel.textContent = pct(state.opacity);
     applyTransform();
   }
-  opRange.addEventListener("input", () => setOpacity(parseFloat(opRange.value)));
-  $("#__po_op_up__").addEventListener("click", () => setOpacity(state.opacity + 0.05));
-  $("#__po_op_down__").addEventListener("click", () => setOpacity(state.opacity - 0.05));
 
   function setScale(v) {
-    state.scale = Math.min(3, Math.max(0.1, v));
-    scaleRange.value = state.scale;
-    scaleLabel.textContent = `${Math.round(state.scale * 100)}%`;
+    state.scale = clamp(v, SCALE_MIN, SCALE_MAX);
+    ui.scaleRange.value = state.scale;
+    ui.scaleLabel.textContent = pct(state.scale);
     applyTransform();
   }
-  scaleRange.addEventListener("input", () => setScale(parseFloat(scaleRange.value)));
-  $("#__po_scale_up__").addEventListener("click", () => setScale(state.scale + 0.05));
-  $("#__po_scale_down__").addEventListener("click", () => setScale(state.scale - 0.05));
 
   function nudge(dx, dy) {
     if (state.locked || !state.visible) return;
@@ -837,111 +805,164 @@
     state.y += dy;
     applyTransform();
   }
-  $("#__po_nudge_left__").addEventListener("click", (e) => nudge(e.shiftKey ? -10 : -1, 0));
-  $("#__po_nudge_right__").addEventListener("click", (e) => nudge(e.shiftKey ? 10 : 1, 0));
-  $("#__po_nudge_up__").addEventListener("click", (e) => nudge(0, e.shiftKey ? -10 : -1));
-  $("#__po_nudge_down__").addEventListener("click", (e) => nudge(0, e.shiftKey ? 10 : 1));
 
   function setVisible(v) {
     state.visible = v;
     applyTransform();
-    toggleBtn.textContent = state.visible ? "Hide · V" : "Show · V";
-    toggleBtn.classList.toggle("is-off", !state.visible);
+    ui.toggleBtn.textContent = state.visible ? "Hide · V" : "Show · V";
+    ui.toggleBtn.classList.toggle("is-off", !state.visible);
   }
-  toggleBtn.addEventListener("click", () => setVisible(!state.visible));
 
   function setLocked(v) {
     state.locked = v;
-    lockBtn.textContent = state.locked ? "Locked · L" : "Lock · L";
-    lockBtn.classList.toggle("is-warn", state.locked);
+    ui.lockBtn.textContent = state.locked ? "Locked · L" : "Lock · L";
+    ui.lockBtn.classList.toggle("is-warn", state.locked);
     applyTransform();
   }
-  lockBtn.addEventListener("click", () => setLocked(!state.locked));
 
-  $("#__po_center__").addEventListener("click", () => {
+  function centerImage() {
     const rect = img.getBoundingClientRect();
     state.x = Math.round((window.innerWidth - rect.width) / 2);
     state.y = Math.round((window.innerHeight - rect.height) / 2);
     applyTransform();
-  });
-  $("#__po_reset__").addEventListener("click", () => {
+  }
+
+  function resetImage() {
     state.x = 0;
     state.y = 0;
-    state.scale = 1;
-    scaleRange.value = 1;
-    scaleLabel.textContent = "100%";
-    applyTransform();
-  });
+    setScale(1);
+  }
 
   function teardown() {
     ac.abort();
     host.remove();
   }
-  $("#__po_close__").addEventListener("click", teardown);
 
-  let dragging = false;
-  let dragStart = { mx: 0, my: 0, x: 0, y: 0 };
-  img.addEventListener("mousedown", (e) => {
+  function blurFileTrigger() {
+    ui.fileBtn.blur();
+    ui.fileInput.blur();
+  }
+
+  listen(ui.minimizeBtn, "click", (e) => {
+    e.stopPropagation();
+    setMinimized(!state.minimized);
+  });
+
+  onClick("#__po_load__", loadFromUrl);
+  listen(ui.urlInput, "focus", () => ui.urlInput.classList.add("is-focused"));
+  listen(ui.urlInput, "blur", () => ui.urlInput.classList.remove("is-focused"));
+  listen(ui.urlInput, "input", clearUrlError);
+  listen(ui.urlInput, "keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    loadFromUrl();
+  });
+
+  function blurUrlIfOutside(e) {
+    const path = (e.composedPath && e.composedPath()) || [];
+    if (path.includes(ui.urlInput)) return;
+    blurUrl();
+  }
+  listen(document, "pointerdown", blurUrlIfOutside, { capture: true });
+  listen(shadow, "pointerdown", blurUrlIfOutside, { capture: true });
+
+  listen(ui.fileBtn, "click", () => {
+    ui.fileInput.click();
+    queueMicrotask(blurFileTrigger);
+  });
+  listen(ui.fileInput, "change", () => {
+    blurFileTrigger();
+    loadFile(ui.fileInput.files[0]);
+  });
+  listen(ui.fileInput, "cancel", blurFileTrigger);
+
+  listenTypes(ui.drop, ["dragenter", "dragover"], (e) => {
+    e.preventDefault();
+    ui.drop.classList.add("is-dragover");
+  });
+  listenTypes(ui.drop, ["dragleave", "drop"], (e) => {
+    e.preventDefault();
+    ui.drop.classList.remove("is-dragover");
+  });
+  listen(ui.drop, "drop", (e) => {
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    loadFile(file);
+  });
+  listen(document, "paste", (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
+    if (!imageItem) return;
+    loadFile(imageItem.getAsFile());
+  });
+
+  listen(ui.opRange, "input", () => setOpacity(parseFloat(ui.opRange.value)));
+  onClick("#__po_op_up__", () => setOpacity(state.opacity + OPACITY_STEP));
+  onClick("#__po_op_down__", () => setOpacity(state.opacity - OPACITY_STEP));
+  listen(ui.scaleRange, "input", () => setScale(parseFloat(ui.scaleRange.value)));
+  onClick("#__po_scale_up__", () => setScale(state.scale + SCALE_STEP));
+  onClick("#__po_scale_down__", () => setScale(state.scale - SCALE_STEP));
+
+  [
+    ["#__po_nudge_left__", -1, 0],
+    ["#__po_nudge_right__", 1, 0],
+    ["#__po_nudge_up__", 0, -1],
+    ["#__po_nudge_down__", 0, 1],
+  ].forEach(([id, dx, dy]) => {
+    onClick(id, (e) => nudge(dx * nudgeStep(e.shiftKey), dy * nudgeStep(e.shiftKey)));
+  });
+
+  listen(ui.toggleBtn, "click", () => setVisible(!state.visible));
+  listen(ui.lockBtn, "click", () => setLocked(!state.locked));
+  onClick("#__po_center__", centerImage);
+  onClick("#__po_reset__", resetImage);
+  onClick("#__po_close__", teardown);
+
+  listen(img, "mousedown", (e) => {
     if (state.locked || !state.visible) return;
     dragging = true;
     img.style.cursor = "grabbing";
     dragStart = { mx: e.clientX, my: e.clientY, x: state.x, y: state.y };
     e.preventDefault();
   });
-  window.addEventListener(
-    "mousemove",
-    (e) => {
-      if (!dragging) return;
-      state.x = dragStart.x + (e.clientX - dragStart.mx);
-      state.y = dragStart.y + (e.clientY - dragStart.my);
-      applyTransform();
-      img.style.cursor = "grabbing";
-    },
-    { signal: ac.signal },
-  );
-  window.addEventListener(
-    "mouseup",
-    () => {
-      dragging = false;
-      applyTransform();
-    },
-    { signal: ac.signal },
-  );
+  listen(window, "mousemove", (e) => {
+    if (!dragging) return;
+    state.x = dragStart.x + (e.clientX - dragStart.mx);
+    state.y = dragStart.y + (e.clientY - dragStart.my);
+    applyTransform();
+    img.style.cursor = "grabbing";
+  });
+  listen(window, "mouseup", () => {
+    dragging = false;
+    applyTransform();
+  });
 
-  let panelDragging = false;
-  let panelDragMoved = false;
-  let panelStart = { mx: 0, my: 0, top: 0, left: 0 };
-  panel.addEventListener("mousedown", (e) => {
+  listen(panel, "mousedown", (e) => {
     if (e.target.closest("button, input")) return;
-    urlInput.blur();
-    urlInput.classList.remove("is-focused");
+    blurUrl();
     panelDragging = true;
     panelDragMoved = false;
     const rect = panel.getBoundingClientRect();
-    panelStart = {
-      mx: e.clientX,
-      my: e.clientY,
-      top: rect.top,
-      left: rect.left,
-    };
+    panelStart = { mx: e.clientX, my: e.clientY, top: rect.top, left: rect.left };
     e.preventDefault();
   });
-  window.addEventListener(
-    "mousemove",
-    (e) => {
-      if (!panelDragging) return;
-      if (Math.abs(e.clientX - panelStart.mx) > 3 || Math.abs(e.clientY - panelStart.my) > 3) {
-        panelDragMoved = true;
-      }
-      panel.style.top = `${panelStart.top + (e.clientY - panelStart.my)}px`;
-      panel.style.left = `${panelStart.left + (e.clientX - panelStart.mx)}px`;
-      panel.style.right = "auto";
-      e.preventDefault();
-    },
-    { signal: ac.signal },
-  );
-  window.addEventListener("mouseup", () => (panelDragging = false), { signal: ac.signal });
-  panel.addEventListener("click", (e) => {
+  listen(window, "mousemove", (e) => {
+    if (!panelDragging) return;
+    if (
+      Math.abs(e.clientX - panelStart.mx) > PANEL_DRAG_THRESHOLD ||
+      Math.abs(e.clientY - panelStart.my) > PANEL_DRAG_THRESHOLD
+    ) {
+      panelDragMoved = true;
+    }
+    panel.style.top = `${panelStart.top + (e.clientY - panelStart.my)}px`;
+    panel.style.left = `${panelStart.left + (e.clientX - panelStart.mx)}px`;
+    panel.style.right = "auto";
+    e.preventDefault();
+  });
+  listen(window, "mouseup", () => {
+    panelDragging = false;
+  });
+  listen(panel, "click", (e) => {
     if (e.detail !== 0) {
       const btn = e.target.closest("button");
       if (btn) btn.blur();
@@ -950,31 +971,17 @@
     setMinimized(false);
   });
 
-  function isTypingTarget(el) {
-    if (!el || !el.tagName) return false;
-    if (el.isContentEditable) return true;
-    const tag = el.tagName;
-    if (tag === "TEXTAREA" || tag === "SELECT") return true;
-    if (tag !== "INPUT") return false;
-    const type = (el.type || "text").toLowerCase();
-    return type !== "range" && type !== "button" && type !== "checkbox" && type !== "radio" && type !== "file";
-  }
-
   function blurHotkeyFocus() {
     const active = shadow.activeElement;
-    if (!active || active === urlInput || isTypingTarget(active)) return;
+    if (!active || active === ui.urlInput || isTypingTarget(active)) return;
     active.blur();
   }
 
-  function keyHandler(e) {
+  listen(document, "keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const origin = e.composedPath && e.composedPath()[0];
     const target = origin || e.target;
-    if (
-      isTypingTarget(target) ||
-      isTypingTarget(shadow.activeElement) ||
-      isTypingTarget(document.activeElement)
-    ) {
+    if (isTypingTarget(target) || isTypingTarget(shadow.activeElement) || isTypingTarget(document.activeElement)) {
       return;
     }
 
@@ -984,33 +991,34 @@
       fn();
     };
 
-    if (e.key === "[") return use(() => setOpacity(state.opacity - 0.05));
-    if (e.key === "]") return use(() => setOpacity(state.opacity + 0.05));
-    if (e.key.toLowerCase() === "v") return use(() => setVisible(!state.visible));
-    if (e.key.toLowerCase() === "l") return use(() => setLocked(!state.locked));
-    if (e.key.toLowerCase() === "m") return use(() => setMinimized(!state.minimized));
-    const step = e.shiftKey ? 10 : 1;
-    if (e.key === "ArrowLeft") return use(() => nudge(-step, 0));
-    if (e.key === "ArrowRight") return use(() => nudge(step, 0));
-    if (e.key === "ArrowUp") return use(() => nudge(0, -step));
-    if (e.key === "ArrowDown") return use(() => nudge(0, step));
-  }
-  document.addEventListener("keydown", keyHandler, { signal: ac.signal });
+    const key = e.key.toLowerCase();
+    const step = nudgeStep(e.shiftKey);
+    const hotkeys = {
+      "[": () => setOpacity(state.opacity - OPACITY_STEP),
+      "]": () => setOpacity(state.opacity + OPACITY_STEP),
+      v: () => setVisible(!state.visible),
+      l: () => setLocked(!state.locked),
+      m: () => setMinimized(!state.minimized),
+      arrowleft: () => nudge(-step, 0),
+      arrowright: () => nudge(step, 0),
+      arrowup: () => nudge(0, -step),
+      arrowdown: () => nudge(0, step),
+    };
+    const action = hotkeys[key];
+    if (action) use(action);
+  });
 
-  img.addEventListener(
+  listen(
+    img,
     "wheel",
     (e) => {
       if (state.locked || !state.visible) return;
       e.preventDefault();
-      setScale(state.scale + (e.deltaY < 0 ? 0.02 : -0.02));
+      setScale(state.scale + (e.deltaY < 0 ? WHEEL_STEP : -WHEEL_STEP));
     },
     { passive: false },
   );
 
   applyTransform();
-  console.log(
-    "%cPixel Overlay %cready",
-    "background:#25c9d0;color:#fff;padding:2px 8px;border-radius:99px 0 0 99px;font-weight:700;",
-    "background:#1f1f2b;color:#bde6e8;padding:2px 8px;border-radius:0 99px 99px 0;",
-  );
+  logReady();
 })();
